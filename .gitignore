@@ -1,0 +1,8 @@
+*~
+.vs/
+.ionide/
+*.sln
+bin/
+obj/
+node_modules/
+simple.db
