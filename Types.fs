@@ -9,9 +9,9 @@ type Message = {
 }
 
 type AnimalType =
-    | AnimalGiraffe
-    | AnimalDog
-    | AnimalCat
+    | Giraffe
+    | Dog
+    | Cat
 
 type Animal = {
     Type : AnimalType
@@ -21,7 +21,14 @@ type Animal = {
     DateOfBirth : System.DateTime
 }
 
-type Genre = Rock | Pop | Metal
+type Genre =
+    | Renaissance
+    | Medieval
+    | Baroque
+    | Classical
+    | Rock
+    | Pop
+    | Metal
 
 [<CLIMutable>]
 type Album = {
@@ -35,14 +42,4 @@ type Album = {
 type NewAlbum = {
     Name: string
     Genre: Genre
-}
-
-let toAlbum ({
-    NewAlbum.Name = name
-    Genre = genre
-} : NewAlbum) : Album = {
-    Id = 0
-    Name = name
-    DateReleased = System.DateTime.Now
-    Genre = genre
 }

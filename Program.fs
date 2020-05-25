@@ -55,71 +55,67 @@ let indexHandler (name : string) =
         let greetings = sprintf "Hello %s, from Giraffe!" name
         let model     = { Text = greetings }
         let view      = Views.index model
-
-        let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
-        let metallica = {
-            Id = 0;
-            Name = name;
-            Genre = Metal;
-            DateReleased = DateTime.Now
-        }
-        albums.Insert(metallica) |> ignore
-        printfn "%A" metallica
         htmlView view next ctx
 
-let animalGreetingHandler () =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        let name =
-            ctx.TryGetQueryStringValue "name"
-            |> Option.defaultValue "Giraffe"
-        let greeting = sprintf "Hello World, from %s" name
-        json { Text = greeting } next ctx
-
 let animalsHandler (count : int) =
-    let animals = [
-        { Animal.Type = AnimalDog
+    let animals : List<Animal> = [
+        { Type = Dog
           FirstName = "Mikan"
           LastName = "Apple"
           Age = 3
-          DateOfBirth = System.DateTime.Now
+          DateOfBirth = System.DateTime.Parse "2017-05-20"
       };
-        { Animal.Type = AnimalCat
+        { Type = Cat
           FirstName = "Rosie"
           LastName = "Bubblegum"
           Age = 5
-          DateOfBirth = System.DateTime.Now
+          DateOfBirth = System.DateTime.Parse "2015-03-02"
       };
-        { Animal.Type = AnimalGiraffe
+        { Type = Giraffe
           FirstName = "Gerard"
           LastName = "Banana"
           Age = 7
-          DateOfBirth = System.DateTime.Now
+          DateOfBirth = System.DateTime.Parse "2013-08-30"
       }
     ]
     json animals.[0..count-1]
 
-let getAlbumsHandler (id : int) =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
-        let result = albums.FindById(BsonValue(id))
-        json result next ctx
-
-let getAlbumsListHandler () =
+let getAlbumListHandler () =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
         let result = albums.FindAll()
         json result next ctx
 
-let putAlbumsHandler (newAlbum : NewAlbum) =
+let getAlbumHandler (id : int) =
     fun (next : HttpFunc) (ctx : HttpContext) ->
-        task {
-            let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
-            albums.Insert(toAlbum(newAlbum)) |> ignore
-            printfn "%A" newAlbum
-            return! Successful.ok (json {| Result = "Success!" |}) next ctx
-        }
+        let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
+        let result = albums.FindById(BsonValue(id))
+        json result next ctx
 
-let deleteAlbumsHandler (id : int) =
+let putAlbumHandler (newAlbum : NewAlbum) =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
+        let album = {
+            Id = 0
+            Name = newAlbum.Name
+            DateReleased = System.DateTime.Now
+            Genre = newAlbum.Genre
+        }
+        albums.Insert(album) |> ignore
+        printfn "%A" album
+        let result = json {| Result = "Album created"; Id = album.Id |}
+        Successful.created result next ctx
+
+let postAlbumHandler (id : int) (updatedAlbum : Album) =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
+        let album = { updatedAlbum with Id = id }
+        albums.Update(album) |> ignore
+        printfn "%A" album
+        let result = json {| Result = "Album updated" |}
+        Successful.created result next ctx
+
+let deleteAlbumHandler (id : int) =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         let albums = ctx.GetService<LiteDatabase>().GetCollection<Album>("albums")
         let result = albums.Delete(BsonValue(id))
@@ -130,19 +126,22 @@ let webApp =
         GET >=>
             choose [
                 route "/" >=> indexHandler "world"
-                routef "/hello/%s" indexHandler
-                route "/giraffe-greeting" >=> animalGreetingHandler ()
                 routef "/animals/%i" animalsHandler
-                routef "/albums/%i" getAlbumsHandler
-                route "/albums" >=> getAlbumsListHandler ()
+                routef "/hello/%s" indexHandler
+                routef "/albums/%i" getAlbumHandler
+                route "/albums" >=> getAlbumListHandler ()
             ]
         PUT >=>
             choose [
-                route "/albums" >=> bindJson<NewAlbum> putAlbumsHandler
+                route "/albums" >=> bindJson<NewAlbum> putAlbumHandler
+            ]
+        POST >=>
+            choose [
+                routef "/albums/%i" (fun id -> bindJson<Album> (postAlbumHandler id))
             ]
         DELETE >=>
             choose [
-                routef "/albums/%i" deleteAlbumsHandler
+                routef "/albums/%i" deleteAlbumHandler
             ]
         setStatusCode 404 >=> text "Not Found" ]
 
